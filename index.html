@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>研究室鍵IDカード貸し出し管理システム</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white shadow-sm sticky top-0 z-10">
+    <div class="max-w-4xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center flex-wrap gap-4">
+      <h1 class="text-xl sm:text-2xl font-bold text-gray-900">
+        研究室鍵IDカード貸し出し管理システム
+      </h1>
+      <button onclick="exportCSV()"
+        class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+        <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+        CSV出力
+      </button>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full">
+
+    <!-- Lending Form -->
+    <section class="bg-white rounded-lg shadow-md p-6 mb-8">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">新規貸出</h2>
+      <form id="lendingForm" class="space-y-4 sm:space-y-0 sm:flex sm:items-end sm:gap-4">
+        <div class="flex-1">
+          <label for="borrowerName" class="block text-sm font-medium text-gray-700 mb-1">借用者氏名</label>
+          <input type="text" id="borrowerName" required
+            class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+            placeholder="氏名を入力">
+        </div>
+
+        <div class="sm:w-48">
+          <span class="block text-sm font-medium text-gray-700 mb-1">カードID</span>
+          <div class="flex items-center space-x-4 mt-2">
+            <label class="inline-flex items-center cursor-pointer">
+              <input type="radio" name="cardId" value="25" checked
+                class="form-radio text-indigo-600 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+              <span class="ml-2" id="label-25">25</span>
+            </label>
+            <label class="inline-flex items-center cursor-pointer">
+              <input type="radio" name="cardId" value="26"
+                class="form-radio text-indigo-600 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+              <span class="ml-2" id="label-26">26</span>
+            </label>
+          </div>
+          <p id="cardError" class="text-red-500 text-xs mt-1 hidden">※選択されたカードは現在貸出中です</p>
+        </div>
+
+        <button type="submit"
+          class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-md shadow-sm transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          貸出開始
+        </button>
+      </form>
+    </section>
+
+    <!-- List View -->
+    <section class="bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <h2 class="text-lg font-semibold text-gray-900">貸出リスト</h2>
+
+          <div class="flex items-center gap-4 w-full sm:w-auto">
+            <div class="relative flex-grow sm:flex-grow-0">
+              <input type="text" id="searchInput" placeholder="氏名で検索..."
+                class="w-full sm:w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm border p-1.5 pl-3">
+            </div>
+            <label class="inline-flex items-center whitespace-nowrap">
+              <input type="checkbox" id="showOnlyBorrowed"
+                class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+              <span class="ml-2 text-sm text-gray-600">貸出中のみ</span>
+            </label>
+            <button onclick="clearHistory()"
+              class="text-xs text-red-500 hover:text-red-700 underline whitespace-nowrap ml-auto sm:ml-0">履歴クリア</button>
+          </div>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">No.</th>
+              <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">カードID</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                借用者氏名</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                貸出日時</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                返却日時</th>
+              <th scope="col"
+                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-10"></th>
+            </tr>
+          </thead>
+          <tbody id="lendingList" class="bg-white divide-y divide-gray-200">
+            <!-- Rows will be populated by JS -->
+          </tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="hidden p-8 text-center text-gray-500">
+        データがありません
+      </div>
+    </section>
+
+    <!-- Usage Notes -->
+    <section class="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+      <h3 class="text-lg font-medium text-yellow-800 mb-3 flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        利用上の注意
+      </h3>
+      <ol class="list-decimal list-inside space-y-1 text-sm text-yellow-800 ml-1">
+        <li>研究室の鍵・IDカードは厳重に管理し、紛失しないようにしてください。</li>
+        <li>貸出期間は原則として1日以内とします。</li>
+        <li>使用後は速やかに返却してください。</li>
+        <li>他人への貸与は禁止します。</li>
+        <li>紛失・盗難・破損等が発生した場合は、直ちに管理者に報告してください。</li>
+      </ol>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast"
+    class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 z-50 flex items-center">
+    <span id="toastMessage">Notification</span>
+  </div>
+
+  <footer class="bg-gray-100 mt-auto py-6">
+    <div class="max-w-4xl mx-auto px-4 text-center text-gray-500 text-sm">
+      &copy; <span id="year"></span> Laboratory Key Management System
+    </div>
+  </footer>
+
+  <script>
+    // --- State Management ---
+    let lendings = [];
+    const STORAGE_KEY = 'lab_key_lending_data';
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      render();
+      updateCardAvailability();
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      // Filter listeners
+      document.getElementById('searchInput').addEventListener('input', render);
+      document.getElementById('showOnlyBorrowed').addEventListener('change', render);
+
+      // Radio button listener to clear error
+      document.querySelectorAll('input[name="cardId"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          document.getElementById('cardError').classList.add('hidden');
+        });
+      });
+    });
+
+    // --- Event Listeners ---
+    document.getElementById('lendingForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      addLending();
+    });
+
+    // --- Core Functions ---
+
+    function loadData() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          lendings = JSON.parse(stored);
+        } catch (e) {
+          console.error('Failed to parse stored data', e);
+          lendings = [];
+        }
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(lendings));
+      updateCardAvailability();
+    }
+
+    function isCardBorrowed(cardId) {
+      // Find if there is any record for this card that has no returnedAt date
+      return lendings.some(item => item.cardId === cardId && item.returnedAt === null);
+    }
+
+    function updateCardAvailability() {
+      const card25Borrowed = isCardBorrowed('25');
+      const card26Borrowed = isCardBorrowed('26');
+
+      const label25 = document.getElementById('label-25');
+      const label26 = document.getElementById('label-26');
+
+      // Visual feedback for availability
+      label25.innerHTML = card25Borrowed ? '25 <span class="text-xs text-red-500 font-bold ml-1">(貸出中)</span>' : '25';
+      label26.innerHTML = card26Borrowed ? '26 <span class="text-xs text-red-500 font-bold ml-1">(貸出中)</span>' : '26';
+    }
+
+    function addLending() {
+      const nameInput = document.getElementById('borrowerName');
+      const cardIdInput = document.querySelector('input[name="cardId"]:checked');
+      const cardError = document.getElementById('cardError');
+
+      if (!nameInput.value.trim()) return;
+
+      const selectedCardId = cardIdInput.value;
+
+      // Double booking check
+      if (isCardBorrowed(selectedCardId)) {
+        cardError.textContent = `カード ${selectedCardId} は現在貸出中です。`;
+        cardError.classList.remove('hidden');
+        return;
+      }
+      cardError.classList.add('hidden');
+
+      const newEntry = {
+        id: Date.now(),
+        borrower: nameInput.value.trim(),
+        cardId: selectedCardId,
+        borrowedAt: new Date().toISOString(),
+        returnedAt: null
+      };
+
+      lendings.push(newEntry);
+      saveData();
+      render();
+      showToast('貸出を記録しました');
+
+      // Reset form
+      nameInput.value = '';
+    }
+
+    function returnKey(id) {
+      const index = lendings.findIndex(item => item.id === id);
+      if (index !== -1) {
+        if (confirm('返却処理を行いますか？')) {
+          lendings[index].returnedAt = new Date().toISOString();
+          saveData();
+          render();
+          showToast('返却を記録しました');
+        }
+      }
+    }
+
+    function deleteLending(id) {
+      if (confirm('この記録を削除しますか？\n※この操作は取り消せません。')) {
+        lendings = lendings.filter(item => item.id !== id);
+        saveData();
+        render();
+        showToast('記録を削除しました');
+      }
+    }
+
+    function clearHistory() {
+      if (confirm('全ての履歴を削除しますか？この操作は取り消せません。')) {
+        lendings = [];
+        saveData();
+        render();
+        showToast('履歴をクリアしました');
+      }
+    }
+
+    function exportCSV() {
+      if (lendings.length === 0) {
+        alert('データがありません');
+        return;
+      }
+
+      // BOM for Excel compatibility
+      const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+      let csvContent = "No.,カードID,借用者氏名,貸出日時,返却日時\n";
+
+      // Sort by date (oldest first for CSV usually makes sense, or match display)
+      // Matching display (newest first)
+      const sortedLendings = [...lendings].sort((a, b) => new Date(b.borrowedAt) - new Date(a.borrowedAt));
+
+      sortedLendings.forEach((item, index) => {
+        const no = sortedLendings.length - index;
+        const row = [
+          no,
+          item.cardId,
+          `"${item.borrower.replace(/"/g, '""')}"`, // Escape quotes
+          formatDate(item.borrowedAt),
+          formatDate(item.returnedAt)
+        ].join(",");
+        csvContent += row + "\n";
+      });
+
+      const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `key_lending_data_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const msg = document.getElementById('toastMessage');
+      msg.textContent = message;
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+
+    function formatDate(isoString) {
+      if (!isoString) return '-';
+      const date = new Date(isoString);
+      return date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function render() {
+      const tbody = document.getElementById('lendingList');
+      const emptyState = document.getElementById('emptyState');
+      const searchInput = document.getElementById('searchInput').value.toLowerCase();
+      const showOnlyBorrowed = document.getElementById('showOnlyBorrowed').checked;
+
+      tbody.innerHTML = '';
+
+      // Filter data
+      let filtered = lendings.filter(item => {
+        const matchesSearch = item.borrower.toLowerCase().includes(searchInput) ||
+          item.cardId.includes(searchInput);
+        const matchesStatus = showOnlyBorrowed ? item.returnedAt === null : true;
+        return matchesSearch && matchesStatus;
+      });
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+        // If we have data but filters hide it, show a different message? 
+        // For simplicity keeping "No data" or maybe "No matching data"
+        if (lendings.length > 0) {
+          emptyState.textContent = "条件に一致するデータがありません";
+        } else {
+          emptyState.textContent = "データがありません";
+        }
+      } else {
+        emptyState.classList.add('hidden');
+
+        // Sort by borrowedAt descending (newest first)
+        const sortedLendings = [...filtered].sort((a, b) => new Date(b.borrowedAt) - new Date(a.borrowedAt));
+
+        sortedLendings.forEach((item, index) => {
+          const tr = document.createElement('tr');
+
+          // Determine status style
+          const isReturned = !!item.returnedAt;
+          const statusClass = isReturned ? 'text-gray-500' : 'text-gray-900 font-medium';
+          const rowClass = isReturned ? 'bg-gray-50' : 'bg-white';
+
+          tr.className = rowClass + ' hover:bg-gray-100 transition-colors';
+
+          // Calculate original index/No for display if needed, or just use current list index
+          // Using dynamic numbering based on current view for simplicity in this context, 
+          // or we could calculate "No." based on total history. 
+          // Let's stick to simple count for the view or calculate based on total.
+          // To keep "No." consistent with the CSV/Total history, we should find its index in the main list.
+          // But main list is unsorted in memory (pushed).
+          // Let's just use the count from the filtered view for now or 
+          // better: calculate the "No" based on the original full list to keep it persistent?
+          // The original code used `lendings.length - index` which implies dynamic numbering.
+          // Let's stick to dynamic numbering for the view.
+
+          tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${sortedLendings.length - index}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">${item.cardId}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm ${statusClass}">${escapeHtml(item.borrower)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(item.borrowedAt)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${isReturned
+              ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    ${formatDate(item.returnedAt)}
+                                   </span>`
+              : `<button onclick="returnKey(${item.id})" class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                    返却する
+                                   </button>`
+            }
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="deleteLending(${item.id})" class="text-gray-400 hover:text-red-600 transition-colors" title="削除">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </td>
+                    `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    function escapeHtml(text) {
+      if (!text) return text;
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+
+</html>
